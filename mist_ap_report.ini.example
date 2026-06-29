@@ -1,0 +1,11 @@
+[mist]
+api_base = https://api.eu.mist.com/api/v1
+org_id = YOUR_ORG_ID_HERE
+api_token = YOUR_API_TOKEN_HERE
+
+[thresholds]
+offline_days = 4
+low_uptime_hours = 24
+
+[output]
+directory = ~
