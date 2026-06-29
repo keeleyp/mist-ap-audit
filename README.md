@@ -25,6 +25,7 @@ All APs currently connected and operational.
 | HW Rev | Hardware revision |
 | Device Profile | Assigned Mist device profile |
 | Status | Connection status (`connected`) |
+| Uptime (days) | How long the AP has been running since last reboot |
 
 #### Sheet 2 — Offline < N Days (orange header)
 

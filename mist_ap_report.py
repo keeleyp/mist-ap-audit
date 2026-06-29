@@ -243,6 +243,10 @@ def main():
         }
         uptime = ap.get("uptime", None)
         if status == "connected":
+            if uptime is not None:
+                row_base["Uptime (days)"] = round(uptime / 86400, 1)
+            else:
+                row_base["Uptime (days)"] = ""
             online.append(row_base)
             if uptime is not None and uptime < LOW_UPTIME_SECONDS:
                 hours = uptime / 3600
@@ -281,11 +285,13 @@ def main():
     offline_lt4_headers = base_headers + ["EPOC Last Seen", "Date Last Seen", "Days Since Last Seen", "AP_RESTARTED (24h)", "AP_DISCONNECTED (24h)", "AP_CONNECTED (24h)"]
     offline_gt4_headers = base_headers + ["EPOC Last Seen", "Date Last Seen", "Days Since Last Seen"]
 
+    online_headers = base_headers + ["Uptime (days)"]
+
     ws1 = wb.active
     ws1.title = "Online APs"
-    style_header(ws1, base_headers, "2E7D32")
+    style_header(ws1, online_headers, "2E7D32")
     for r, ap in enumerate(online, 2):
-        for c, h in enumerate(base_headers, 1):
+        for c, h in enumerate(online_headers, 1):
             ws1.cell(row=r, column=c, value=ap.get(h, ""))
     auto_width(ws1)
 
