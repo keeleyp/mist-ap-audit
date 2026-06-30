@@ -57,6 +57,33 @@ HEADERS = {"Authorization": f"Token {API_TOKEN}"}
 HEADER_COLOR  = "1A237E"
 RATE_HEADROOM = 10   # keep this many calls in reserve before pausing
 
+# Issue-flag fills
+FILL_OK      = PatternFill(start_color="4CAF50", end_color="4CAF50", fill_type="solid")   # green  ✓
+FILL_ISSUE   = PatternFill(start_color="E53935", end_color="E53935", fill_type="solid")   # red    ✗
+FILL_FLAGGED = PatternFill(start_color="FFE082", end_color="FFE082", fill_type="solid")   # amber  (problem cell)
+FONT_WHITE   = Font(bold=True, color="FFFFFF", size=12)
+
+# Columns to check and the condition that marks them as a problem.
+# A condition returns True when the value indicates an issue.
+# Empty/missing values are skipped (AP may be offline or have no eth0 data).
+ISSUE_CHECKS = {
+    "eth0 Full Duplex":  lambda v: v is not True,
+    "Power Constrained": lambda v: v is True,
+    "eth0 Speed (Mbps)": lambda v: v == 100,
+    "eth0 RX Errors":    lambda v: isinstance(v, (int, float)) and v != 0,
+}
+
+def flagged_columns(row):
+    """Return the set of column names that have a health issue for this AP row."""
+    flags = set()
+    for col, check in ISSUE_CHECKS.items():
+        val = row.get(col)
+        if val == "" or val is None:
+            continue   # no data — skip rather than false-flag
+        if check(val):
+            flags.add(col)
+    return flags
+
 # ---------------------------------------------------------------------------
 # Rate-limit helpers
 # ---------------------------------------------------------------------------
@@ -287,6 +314,7 @@ def flatten_ap(ap, site_name):
 # ---------------------------------------------------------------------------
 
 COLUMNS = [
+    "Issue",
     "Site Name", "AP Name", "MAC", "Status", "Power Constrained",
     "IP", "Gateway", "Netmask", "DNS Servers", "DHCP Server", "External IP", "Mount",
     "eth0 Up", "eth0 Speed (Mbps)", "eth0 Full Duplex",
@@ -439,9 +467,24 @@ def main():
 
     style_header(ws)
 
+    issues_count = 0
+
     for r, row in enumerate(all_rows, 2):
+        flags = flagged_columns(row)
+        has_issue = bool(flags)
+        if has_issue:
+            issues_count += 1
+
         for c, col in enumerate(COLUMNS, 1):
-            ws.cell(row=r, column=c, value=row.get(col, ""))
+            if col == "Issue":
+                cell = ws.cell(row=r, column=c, value="✗" if has_issue else "✓")
+                cell.fill      = FILL_ISSUE if has_issue else FILL_OK
+                cell.font      = FONT_WHITE
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell = ws.cell(row=r, column=c, value=row.get(col, ""))
+                if col in flags:
+                    cell.fill = FILL_FLAGGED
 
     ws.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNS))}1"
     ws.freeze_panes   = "A2"
@@ -461,6 +504,7 @@ def main():
     print(f"{'='*60}")
     print(f"  Sites processed:     {num_sites_actual}")
     print(f"  APs collected:       {len(all_rows)}")
+    print(f"  APs with issues:     {issues_count}  ({len(all_rows) - issues_count} OK)")
     print(f"  Avg time/site:       {avg_site:.2f}s")
     print(f"  API calls this run:  ~{calls_this_run}")
     print(f"  Total elapsed time:  {format_eta(elapsed)}")
