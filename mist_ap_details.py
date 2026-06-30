@@ -95,9 +95,12 @@ def fetch_api_usage():
     d = resp.json()
     return d.get("requests", 0), d.get("request_limit", 5000), d.get("seconds", 0)
 
-def remaining_and_reset(used, limit, secs_elapsed):
-    remaining  = limit - used
-    secs_left  = max(0, 3600 - int(secs_elapsed))
+def remaining_and_reset(used, limit, _secs_elapsed=None):
+    remaining = limit - used
+    # Reset happens on the clock hour, not 60 mins from first request.
+    now = datetime.now()
+    secs_into_hour = now.minute * 60 + now.second
+    secs_left = max(0, 3600 - secs_into_hour)
     return remaining, secs_left
 
 def wait_for_reset(secs_left, reason=""):
