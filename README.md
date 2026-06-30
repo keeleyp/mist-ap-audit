@@ -201,10 +201,39 @@ Queries the Mist API **site by site** and produces a single-sheet Excel workbook
 
 1. Fetches org info and site list
 2. Calls `/sites/{site_id}/stats/devices?type=ap&limit=1000` once per site
-3. Checks the API rate limit before starting and every 50 sites during the run — pausing automatically if calls run low
-4. Produces a single filtered, frozen Excel sheet with one row per AP
+3. Evaluates each AP against health checks and flags issues in column A
+4. Checks the API rate limit before starting and every 50 sites during the run — pausing automatically if calls run low
+5. Produces a single filtered, frozen Excel sheet with one row per AP
+
+### Issue Flagging
+
+The first column — **Issue** — gives an instant health verdict for every AP:
+
+| Symbol | Cell colour | Meaning |
+|---|---|---|
+| ✓ | Green | All health checks passed |
+| ✗ | Red | One or more checks failed |
+
+Any cell that **caused** the flag is highlighted in **amber** so you can see the specific problem without scanning the whole row.
+
+#### Health checks
+
+| Column checked | Flag condition |
+|---|---|
+| `eth0 Full Duplex` | Not `True` — port negotiated half-duplex |
+| `Power Constrained` | `True` — AP is running below full PoE budget |
+| `eth0 Speed (Mbps)` | `100` — uplink running at Fast Ethernet instead of Gigabit |
+| `eth0 RX Errors` | Non-zero — receive errors on the uplink port |
+
+Cells with no data (e.g. a disconnected AP with no port stats) are skipped rather than false-flagged.
 
 ### Output Sheet — AP Details (dark indigo header)
+
+#### Column A — Issue flag
+
+| Column | Description |
+|---|---|
+| Issue | ✓ (green) if healthy, ✗ (red) if any health check failed. Problem cells highlighted amber. |
 
 #### Identity
 
@@ -214,7 +243,7 @@ Queries the Mist API **site by site** and produces a single-sheet Excel workbook
 | AP Name | AP hostname |
 | MAC | AP MAC address |
 | Status | `connected` or `disconnected` |
-| Power Constrained | Whether the AP is operating below full power due to PoE budget |
+| Power Constrained | `True` if AP is running below full PoE budget (also flagged in Issue column) |
 
 #### Network
 
@@ -280,7 +309,7 @@ The Mist API allows **5,000 calls per hour**. This script makes one call per sit
   Calls still needed this run: ~3242
   Calls available (with 10 headroom): 312
   Shortfall: ~2930 calls
-  Window resets in ~47m 12s
+  Window resets in ~47m 12s  (at 02:00)
 
   Options:
     w — wait for the window to reset, then start automatically
@@ -313,7 +342,7 @@ python3 mist_ap_details.py
 ============================================================
   API rate limit:      5000 calls/hour
   Used this hour:      522
-  Remaining:           4478  (window resets in ~58m 42s)
+  Remaining:           4478  (window resets in ~42m 18s)
   Sufficient calls available.  OK to proceed.
 ============================================================
 

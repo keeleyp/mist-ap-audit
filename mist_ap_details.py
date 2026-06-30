@@ -9,15 +9,21 @@ Unlike mist_ap_report.py (which uses the org-level stats endpoint), this script
 calls the per-site stats endpoint so it can capture fields that are only returned
 at site scope — port stats, LLDP neighbour info, PoE draw, ESL state, etc.
 
+Issue flagging:
+  - Column A shows ✓ (green) or ✗ (red) for each AP
+  - Cells that triggered a flag are highlighted in amber
+  - Flagged conditions: eth0 not full-duplex, eth0 speed == 100 Mbps,
+    eth0 RX errors > 0, Power Constrained == True
+
 Pre-flight:
   - Fetches org name and site count
   - Estimates total API calls required
-  - Checks calls remaining in the current rate-limit window (/self/usage)
+  - Checks calls remaining against the current clock-hour window (/self/usage)
   - Blocks with a wait/quit prompt if there are insufficient calls available
 
 During the run:
   - Re-checks the rate limit every 50 sites
-  - If calls run out mid-run, offers to wait for the window to reset then continue
+  - If calls run out mid-run, offers to wait for the top-of-hour reset then continue
 
 Output:
   Mist_AP_Details_<OrgName>_<YYYY-MM-DD_HHMMSS>.xlsx
