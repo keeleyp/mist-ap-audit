@@ -105,15 +105,21 @@ def fetch_site_names(token, site_ids):
     return site_map, api_calls
 
 def fetch_events_24h(token):
+    from urllib.parse import urlparse
     headers = {"Authorization": f"Token {token}"}
-    now = int(time.time())
+    # Derive the base host from API_BASE so next-page URLs use the correct endpoint
+    # (EU vs US) rather than a hardcoded hostname.
+    parsed   = urlparse(API_BASE)
+    api_host = f"{parsed.scheme}://{parsed.netloc}"
+
+    now   = int(time.time())
     start = now - ONE_DAY_SECONDS
-    end = now
+    end   = now
     all_events = []
-    api_calls = 0
+    api_calls  = 0
     page_times = []
-    url = f"{API_BASE}/orgs/{ORG_ID}/devices/events/search?limit=1000&start={start}&end={end}&device_type=ap"
-    page = 0
+    url   = f"{API_BASE}/orgs/{ORG_ID}/devices/events/search?limit=1000&start={start}&end={end}&device_type=ap"
+    page  = 0
     total = None
     while url:
         page += 1
@@ -123,21 +129,21 @@ def fetch_events_24h(token):
         page_time = time.time() - t0
         page_times.append(page_time)
         api_calls += 1
-        data = resp.json()
+        data    = resp.json()
         if total is None:
             total = data.get("total", 0)
         results = data.get("results", [])
         if not results:
             break
         all_events.extend(results)
-        avg_time = sum(page_times) / len(page_times)
-        pct = min(99, len(all_events) / max(total, 1) * 100) if total else 0
+        avg_time  = sum(page_times) / len(page_times)
+        pct       = min(99, len(all_events) / max(total, 1) * 100) if total else 0
         remaining = max(0, total - len(all_events)) / 1000 * avg_time
         sys.stdout.write(f"\r  Page {page} | {len(all_events)}/{total} events ({pct:.0f}%) | {avg_time:.1f}s/page | ETA: {format_eta(remaining)}   ")
         sys.stdout.flush()
-        next_url = data.get("next")
-        if next_url:
-            url = f"https://api.eu.mist.com{next_url}"
+        next_path = data.get("next")
+        if next_path:
+            url = f"{api_host}{next_path}"
         else:
             break
     print(f"\r  Events fetch complete - {len(all_events)} events in {format_eta(sum(page_times))}                    ")
