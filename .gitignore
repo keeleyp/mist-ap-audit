@@ -1,4 +1,5 @@
 mist_ap_report.ini
+mist_org_audit_log.ini
 *.xlsx
 __pycache__/
 *.pyc

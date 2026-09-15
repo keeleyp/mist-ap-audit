@@ -1,0 +1,11 @@
+[mist]
+api_base = https://api.mist.com/api/v1
+org_id = YOUR_ORG_ID_HERE
+api_token = YOUR_API_TOKEN_HERE
+
+[dates]
+start_date = 01/01/2015
+end_date = 15/09/2026
+
+[output]
+directory = ~

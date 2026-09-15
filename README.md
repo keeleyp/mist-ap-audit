@@ -6,8 +6,9 @@ A collection of Python scripts for querying the Juniper Mist API and generating 
 |---|---|
 | `mist_ap_report.py` | Multi-sheet health audit — APs grouped by status, offline duration, and recent reboots |
 | `mist_ap_details.py` | Single-sheet inventory detail — per-AP port stats, LLDP neighbours, PoE draw, IP info |
+| `mist_org_audit_log.py` | Full organisation audit trail — every admin change, going back further than the 3-month GUI limit |
 
-Both scripts share the same `mist_ap_report.ini` config file.
+`mist_ap_report.py` and `mist_ap_details.py` share the same `mist_ap_report.ini` config file. `mist_org_audit_log.py` uses its own `mist_org_audit_log.ini`.
 
 ---
 
@@ -366,6 +367,95 @@ Uses the same `mist_ap_report.ini` as `mist_ap_report.py`. The `[thresholds]` se
 - 3 preflight calls (org info, org stats, usage check)
 - A mid-run usage re-check every 50 sites (counts against the limit)
 - Typical run for 3,000 sites ≈ 3,060 API calls
+
+---
+
+## mist_org_audit_log.py — Organisation Audit Trail
+
+Pulls the **full change history** for an organisation via the Mist Org Logs API (`/orgs/{org_id}/logs`) — every admin action (site created, WLAN edited, device claimed, etc.), including who made the change and what the before/after values were. The Mist GUI only shows the last 3 months; this endpoint goes back to the org's creation.
+
+### What It Does
+
+1. Fetches org info and displays a pre-flight summary
+2. Asks for confirmation before proceeding
+3. Fetches every log entry in the configured date range, using cursor-based pagination so nothing is missed or duplicated on large histories
+4. Resolves site IDs to site names via the bulk sites endpoint
+5. Generates a single-sheet Excel report, newest entries first
+6. Displays a summary of results and API usage
+
+### Output Sheet — Audit Log
+
+| Column | Description |
+|---|---|
+| Timestamp (UTC) | Human-readable date/time of the change |
+| Timestamp (Epoch) | Raw Unix timestamp |
+| Admin Name | Name or email of the admin who made the change |
+| Admin ID | Admin UUID |
+| Site Name | Human-readable site name (blank for org-level actions) |
+| Site ID | Site UUID (blank for org-level actions) |
+| For Site | `True` if the change was scoped to a site |
+| Message | Human-readable description of the change |
+| Source IP | IP address the change was made from |
+| Before | JSON of the field values before the change |
+| After | JSON of the field values after the change |
+| Log ID | Unique log entry UUID |
+
+### Output File
+
+```
+Mist_Org_Audit_Log_<OrgName>_<start>_to_<end>_<YYYY-MM-DD_HHMMSS>.xlsx
+```
+
+### Setup
+
+1. Copy the example config and edit it with your details:
+   ```bash
+   cp mist_org_audit_log.ini.example mist_org_audit_log.ini
+   ```
+
+2. Edit `mist_org_audit_log.ini`:
+   ```ini
+   [mist]
+   api_base = https://api.eu.mist.com/api/v1
+   org_id = your-org-uuid-here
+   api_token = your-api-token-here
+
+   [dates]
+   start_date = 01/01/2015
+   end_date = 15/09/2026
+
+   [output]
+   directory = ~
+   ```
+
+   **Note:** Use `https://api.mist.com/api/v1` for US-hosted organisations.
+
+### Usage
+
+```bash
+python3 mist_org_audit_log.py
+```
+
+### Configuration
+
+| Section | Key | Description | Default |
+|---|---|---|---|
+| `mist` | `api_base` | Mist API base URL | — |
+| `mist` | `org_id` | Organisation UUID | — |
+| `mist` | `api_token` | API authentication token | — |
+| `dates` | `start_date` | Start of the audit window, `dd/mm/yyyy` | — |
+| `dates` | `end_date` | End of the audit window, `dd/mm/yyyy` | — |
+| `output` | `directory` | Where to save the Excel file (`~` expands to home) | `~` |
+
+### API Calls
+
+- Log entries are fetched in pages of 1,000 using cursor-based (`next`) pagination
+- Site names are fetched in bulk via the org-level sites endpoint (not per-site), only if any log entries reference a site
+- A typical run is 1–2 API calls per 1,000 log entries plus one for site names
+
+### Security
+
+The `mist_org_audit_log.ini` file containing your API token is excluded from version control via `.gitignore`. Never commit this file to a public repository.
 
 ---
 
