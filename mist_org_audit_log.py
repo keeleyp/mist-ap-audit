@@ -89,6 +89,7 @@ def fetch_audit_logs(token, start, end):
     total = None
     url = f"{API_BASE}/orgs/{ORG_ID}/logs?limit=1000&start={start}&end={end}&sort=-timestamp"
     page = 0
+    empty_first_page_retried = False
     while url:
         page += 1
         t0 = time.time()
@@ -101,6 +102,18 @@ def fetch_audit_logs(token, start, end):
             total = data.get("total", 0)
         results = data.get("results", [])
         if not results:
+            # Mist's audit-log search occasionally returns an empty first
+            # page for a large historical window even when data exists -
+            # confirmed by re-running the identical request moments later
+            # and getting real results. Give it one retry before giving up.
+            if page == 1 and not empty_first_page_retried:
+                empty_first_page_retried = True
+                page -= 1
+                page_times.pop()
+                total = None
+                print("\r  First page came back empty - retrying once in case it was a transient hiccup...")
+                time.sleep(5)
+                continue
             break
         all_logs.extend(results)
         avg_time = sum(page_times) / len(page_times)
